@@ -5,6 +5,7 @@ import { SpyMessages } from "../src/spyMessages";
 
 import { log } from "@proto-kit/common";
 import { UInt64 } from "@proto-kit/library";
+import { securityCode } from "../src/message";
 
 log.setLevel("ERROR");
 
@@ -37,12 +38,13 @@ describe("Spy Message Network", () => {
     appChain.setSigner(adminPrivateKey);
 
     const spyMessages = appChain.runtime.resolve("SpyMessages");
+    const secCode = new securityCode({
+      char1 : Character.fromString('a'),
+      char2 : Character.fromString('0'),
+    })
 
     const tx1 = await appChain.transaction(admin, () => {
-      spyMessages.addAgent(UInt64.from(1000) , CircuitString.fromCharacters([
-        Character.fromString('a'),
-        Character.fromString('0'),
-      ]));
+      spyMessages.addAgent(UInt64.from(1000) ,secCode);
     });
 
     await tx1.sign();
@@ -51,15 +53,10 @@ describe("Spy Message Network", () => {
     const block = await appChain.produceBlock();
 
     const key = UInt64.from(1000)
-    const secCode = await appChain.query.runtime.SpyMessages.agents.get(key);
-
-    console.log(JSON.stringify(secCode));
-    
+    const onChainSecCodeValue = await appChain.query.runtime.SpyMessages.agents.get(key);
     
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
-    expect(secCode).toBe(CircuitString.fromCharacters([
-      Character.fromString('a'),
-      Character.fromString('0'),
-    ]));
+    expect(onChainSecCodeValue?.char1.toString()).toBe('a');
+    expect(onChainSecCodeValue?.char2.toString()).toBe('0');
   }, 1_000_000);
 });
