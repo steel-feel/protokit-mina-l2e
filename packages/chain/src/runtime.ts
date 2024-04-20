@@ -17,9 +17,7 @@ export const config: ModulesConfig<typeof modules> = {
   Balances: {
     totalSupply: Balance.from(10_000),
   },
-  SpyMessages  : {
-    admin
-  }
+  SpyMessages  : { }
 };
 
 export default {
