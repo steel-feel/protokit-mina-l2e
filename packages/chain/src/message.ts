@@ -1,4 +1,4 @@
-import { Bool, Character, CircuitString, Struct, UInt32 } from "o1js";
+import { Bool, Character, CircuitString, Field, Struct, UInt32 } from "o1js";
 import { UInt64, } from "@proto-kit/library";
 import { assert } from "@proto-kit/protocol";
 
@@ -19,7 +19,6 @@ export class MessageStruct extends Struct({
 
   constructor(content: string) {
     const len = content.length
-  
     // Bool(len <= 12).assertTrue()
     assert(Bool(len <= 12), "message length greater than 12")
     

@@ -1,13 +1,14 @@
 import { runtimeModule, RuntimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { StateMap, assert } from "@proto-kit/protocol";
 import { UInt64, } from "@proto-kit/library";
-import { SecurityCode, AgentDetails,MessageStruct } from "./message";
+import { SecurityCode, AgentDetails, MessageStruct } from "./message";
+import { Field } from "o1js";
 
 
 @runtimeModule()
 export class SpyMessages extends RuntimeModule<Record<string, never>> {
   //Note: Somehow its not working if fetched inside the method
-  @state() public agents = StateMap.from<UInt64,AgentDetails>(
+  @state() public agents = StateMap.from<UInt64, AgentDetails>(
     UInt64,
     AgentDetails
   );
@@ -15,12 +16,8 @@ export class SpyMessages extends RuntimeModule<Record<string, never>> {
 
   @runtimeMethod()
   // public addMessage(message: Message): void {
-  public addMessage(agentId: UInt64, securityCode: SecurityCode,
-     messageContent:MessageStruct, 
-    messageNo:UInt64
-      )
-     : void {
-    const someAgent = this.agents.get( UInt64.from( agentId))
+  public addMessage(agentId: UInt64, securityCode: SecurityCode, messageContent: MessageStruct, messageNo: UInt64): void {
+    const someAgent = this.agents.get(UInt64.from(agentId))
     //check if agent exists
     assert(someAgent.isSome, "Agent code is present")
     const agent = new AgentDetails(someAgent.value)
@@ -32,8 +29,9 @@ export class SpyMessages extends RuntimeModule<Record<string, never>> {
     assert(agent.lastMessageNo.lessThan(messageNo), "Message number should be greater")
     //update the message no in state
     agent.lastMessageNo = messageNo
-    this.agents.set(agentId,agent)
+    assert(messageContent.content.length().lessThanOrEqual(Field(12)))
 
+    this.agents.set(agentId, agent)
   }
 
   @runtimeMethod()
@@ -41,17 +39,12 @@ export class SpyMessages extends RuntimeModule<Record<string, never>> {
     Id: UInt64,
     securityCode: SecurityCode
   ): void {
-    //check that it only be accessed by admin
-    // assert(
-    //   this.transaction.sender.value.equals(this.config.admin),
-    //   "Agent can only be added by Admin"
-    // );
     var agent = new AgentDetails({
-    lastMessageNo : UInt64.from(0),
-    securityCode1:securityCode.char1,
-    securityCode2:securityCode.char2,
+      lastMessageNo: UInt64.from(0),
+      securityCode1: securityCode.char1,
+      securityCode2: securityCode.char2,
     })
     this.agents.set(Id, agent);
-  
+
   }
 }

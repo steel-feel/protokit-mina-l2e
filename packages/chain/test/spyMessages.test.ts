@@ -1,11 +1,11 @@
 import { TestingAppChain } from "@proto-kit/sdk";
-import { Character, CircuitString, Int64, PrivateKey } from "o1js";
+import { Character, PrivateKey } from "o1js";
 import { Balances } from "../src/balances";
 import { SpyMessages } from "../src/spyMessages";
 
 import { log } from "@proto-kit/common";
 import { UInt64 } from "@proto-kit/library";
-import { Message, MessageStruct, SecurityCode } from "../src/message";
+import { MessageStruct, SecurityCode } from "../src/message";
 
 log.setLevel("ERROR");
 
@@ -82,7 +82,6 @@ describe("Spy Message Network", () => {
 
     await tx2.sign();
     await tx2.send();
-
 
     const block = await appChain.produceBlock();
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
