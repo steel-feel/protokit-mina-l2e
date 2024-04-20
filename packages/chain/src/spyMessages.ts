@@ -7,7 +7,7 @@ import { Field } from "o1js";
 
 @runtimeModule()
 export class SpyMessages extends RuntimeModule<Record<string, never>> {
-  
+
   @state() public agents = StateMap.from<UInt64, AgentDetails>(
     UInt64,
     AgentDetails
@@ -15,7 +15,6 @@ export class SpyMessages extends RuntimeModule<Record<string, never>> {
 
 
   @runtimeMethod()
- 
   public addMessage(agentId: UInt64, securityCode: SecurityCode, messageContent: MessageStruct, messageNo: UInt64): void {
     const someAgent = this.agents.get(UInt64.from(agentId))
     //check if agent exists
@@ -26,10 +25,11 @@ export class SpyMessages extends RuntimeModule<Record<string, never>> {
     assert(securityCode.char2.equals(agent.securityCode2), "Secuity Code 2 is wrong")
     //check if message no is greater than current  
     assert(agent.lastMessageNo.lessThan(messageNo), "Message number should be greater")
+    //check message length
+    assert(messageContent.content.length().lessThanOrEqual(Field(12)))
+    
     //update the message no in state
     agent.lastMessageNo = messageNo
-    assert(messageContent.content.length().lessThanOrEqual(Field(12)))
-
     this.agents.set(agentId, agent)
   }
 
