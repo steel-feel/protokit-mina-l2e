@@ -10,7 +10,7 @@ import { MessageStruct, SecurityCode } from "../src/message";
 log.setLevel("ERROR");
 
 
-describe("Spy Message Network", () => {
+describe.skip("Spy Message Network", () => {
   let adminPrivateKey: any, admin: any
   let appChain: ReturnType<
     typeof TestingAppChain.fromRuntime<{

@@ -42,14 +42,15 @@ export class ExtendedAgentDetails extends Struct({
   nonce: UInt64
 }) { }
 
-export const messagesMap = new MerkleMap();
-
 export class MessageVerificationInput extends Struct({
+  agentId: Field,
   securityCode1: Character,
   securityCode2: Character,
   root: Field
 }){}
 
+//message Map
+export const messagesMap = new MerkleMap();
 
 // create a new tree
 export const height = 20;

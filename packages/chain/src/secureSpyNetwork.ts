@@ -1,9 +1,11 @@
 import { runtimeModule, runtimeMethod, state } from "@proto-kit/module";
 import { SpyMessages } from "./spyMessages"
 import { UInt64 } from "@proto-kit/library";
-import {  ExtendedAgentDetails, MerkleWitness20, MessageVerificationInput, SecurityCode } from "./message";
+import {  ExtendedAgentDetails,  MessageVerificationInput, SecurityCode } from "./message";
 import { StateMap, State, assert } from "@proto-kit/protocol";
-import { Field, Experimental, CircuitString } from "o1js";
+import { Field, Experimental, CircuitString, MerkleMapWitness } from "o1js";
+import { inject } from "tsyringe"
+
 
 //TODO: try to store the messages as well
 
@@ -16,7 +18,7 @@ import { Field, Experimental, CircuitString } from "o1js";
  */
 const canMessage = (
   publicInput: MessageVerificationInput,
-  witness: MerkleWitness20,
+  witness: MerkleMapWitness,
   message: CircuitString,
   lastMessageNo: Field,
   currentMsgNo: Field): Field => {
@@ -24,26 +26,28 @@ const canMessage = (
   //@ts-ignore
   message.length().assertLessThanOrEqual(Field(12))
 
-  const rootBefore = witness.calculateRoot(lastMessageNo)
-  rootBefore.assertEquals(publicInput.root)
+  const [,agentId ] = witness.computeRootAndKey(lastMessageNo)
+  agentId.assertEquals(publicInput.agentId)
 
+  //TODO: Should we add agent Id check as well ?
+  
   //check if message no is greater than current  
   lastMessageNo.assertLessThan(currentMsgNo)
 
-  const rootAfter = witness.calculateRoot(currentMsgNo)
+  const [rootAfter,] = witness.computeRootAndKey(currentMsgNo)
 
   return rootAfter
 };
 
 
 // your zk program goes here
-const canMessageProgram = Experimental.ZkProgram({
+export const canMessageProgram = Experimental.ZkProgram({
   publicOutput: Field,
   publicInput: MessageVerificationInput,
 
   methods: {
-    canMint: {
-      privateInputs: [MerkleWitness20, CircuitString, Field, Field],
+    canMessage: {
+      privateInputs: [MerkleMapWitness, CircuitString, Field, Field],
       // eslint-disable-next-line putout/putout
       method: canMessage
     },
@@ -82,6 +86,10 @@ export class SecureSpyNetwork extends SpyMessages {
 
   @state() public root = State.from<Field>(Field);
 
+  // constructor( @inject("SpyMessages") private balances: SpyMessages ) {
+  //   super()
+  //   this.root.set(Field(0))
+  // }
 
   @runtimeMethod()
   public sendMessage(
@@ -100,7 +108,7 @@ export class SecureSpyNetwork extends SpyMessages {
     assert(proof.publicInput.securityCode2.equals(agent.securityCode2), "Secuity Code 2 is wrong")
 
     //check if root matches
-    assert(proof.publicInput.root.equals(agent.root), "Message root are not equal")
+    assert(proof.publicInput.root.equals(this.root.get().value), "Message roots are not equal")
 
     //Update values
     agent.blockHeight = UInt64.from(this.network.block.height)
@@ -109,13 +117,40 @@ export class SecureSpyNetwork extends SpyMessages {
     agent.blockHeight = UInt64.from(this.network.block.height)
     agent.root = proof.publicOutput
 
-    this.extendedAgents.set(agentId, agent);
+
+    this.root.set(proof.publicOutput)
+
+    this.extendedAgents.set(agentId, agent)
   }
 
   @runtimeMethod()
   public override addAgent(
     Id: UInt64,
     securityCode: SecurityCode
+  ): void {
+
+    /*
+    var agent = new ExtendedAgentDetails({
+      root: Field(0),
+      securityCode1: securityCode.char1,
+      securityCode2: securityCode.char2,
+      sender: this.transaction.sender.value,
+      nonce: UInt64.from(this.transaction.nonce.value),
+      blockHeight: UInt64.from(this.network.block.height)
+    })
+
+    this.extendedAgents.set(Id, agent);
+    */
+    
+    /// DO Nothing
+    
+  }
+
+  @runtimeMethod()
+  public addAgentNew(
+    Id: UInt64,
+    securityCode: SecurityCode,
+    root: Field
   ): void {
 
     var agent = new ExtendedAgentDetails({
@@ -128,9 +163,11 @@ export class SecureSpyNetwork extends SpyMessages {
     })
 
     this.extendedAgents.set(Id, agent);
-
-
+    this.root.set(root)
+    
   }
+
+
 
 
 
