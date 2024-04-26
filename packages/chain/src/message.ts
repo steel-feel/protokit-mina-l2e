@@ -36,7 +36,6 @@ export class Message extends Struct({
 export class ExtendedAgentDetails extends Struct({
   securityCode1: Character,
   securityCode2: Character,
-  root: Field,
   sender: PublicKey,
   blockHeight: UInt64,
   nonce: UInt64
@@ -51,8 +50,3 @@ export class MessageVerificationInput extends Struct({
 
 //message Map
 export const messagesMap = new MerkleMap();
-
-// create a new tree
-export const height = 20;
-export const messagesTree = new MerkleTree(height);
-export class MerkleWitness20 extends MerkleWitness(height) {}

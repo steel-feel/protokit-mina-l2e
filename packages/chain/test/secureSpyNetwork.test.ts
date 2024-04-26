@@ -1,16 +1,33 @@
 import { TestingAppChain } from "@proto-kit/sdk";
-import { Character, CircuitString, Field, PrivateKey, PublicKey, VerificationKey } from "o1js";
+import { Character, Field, PrivateKey, PublicKey } from "o1js";
+
 import { Balances } from "../src/balances";
-// import { SpyMessages } from "../src/spyMessages";
-import { SecureSpyNetwork, canMessageProgram } from "../src/secureSpyNetwork";
+
+import { SecureSpyNetwork, CanMessageProof } from "../src/secureSpyNetwork";
 
 
 import { log } from "@proto-kit/common";
 import { UInt64 } from "@proto-kit/library";
-import { MessageStruct, MessageVerificationInput, SecurityCode, messagesMap, messagesTree } from "../src/message";
+import { MessageVerificationInput, SecurityCode, messagesMap } from "../src/message";
+
+/// Proof system
+import { Pickles } from "o1js/dist/node/snarky";
+import { dummyBase64Proof } from "o1js/dist/node/lib/proof_system";
 
 log.setLevel("ERROR");
 
+async function mockProof(
+  publicInput:MessageVerificationInput,
+  publicOutput: Field,
+): Promise<CanMessageProof> {
+  const [, proof] = Pickles.proofOfBase64(await dummyBase64Proof(), 2);
+  return new CanMessageProof({
+    proof,
+    maxProofsVerified: 2,
+    publicInput ,
+    publicOutput,
+  });
+}
 
 describe("Secure Spy-Message Network", () => {
   let adminPrivateKey: PrivateKey, admin: PublicKey
@@ -21,12 +38,8 @@ describe("Secure Spy-Message Network", () => {
     }>
   >;
   let secureSpyNetwork: SecureSpyNetwork
-  let verificationKey: string
 
   beforeAll(async () => {
-    const result = await canMessageProgram.compile()
-    verificationKey = result.verificationKey
-
     appChain = TestingAppChain.fromRuntime({
       Balances,
       SecureSpyNetwork
@@ -52,7 +65,7 @@ describe("Secure Spy-Message Network", () => {
 
 
   it("should add agent", async () => {
-    const agentId = UInt64.from("1000")
+    const agentId = Field("1000")
     const secCode = new SecurityCode({
       char1: Character.fromString('a'),
       char2: Character.fromString('0'),
@@ -62,7 +75,7 @@ describe("Secure Spy-Message Network", () => {
 
     const tx1 = await appChain.transaction(admin, () => {
       // secureSpyNetwork.addAgent(agentId, secCode);
-      secureSpyNetwork.addAgentNew(agentId, secCode, messagesMap.getRoot() );
+      secureSpyNetwork.addAgentNew(agentId, secCode, messagesMap.getRoot());
     });
 
     await tx1.sign();
@@ -77,30 +90,28 @@ describe("Secure Spy-Message Network", () => {
 
   }, 1_000_000);
 
+
   it("Should send messages", async () => {
-    const agentId = UInt64.from("1000")
+    const agentId = Field("1000")
     const messageNo = Field(1)
     //add values to tree
     const agentAsField = Field(agentId.toString())
     //create witness
     messagesMap.set(agentAsField, Field(0))
     const witness = messagesMap.getWitness(agentAsField)
-    // messagesMap.set( agentAsField , messageNo )
-
-    // const vs = witness.computeRootAndKey(Field(0))
-    // console.log(`witness ${JSON.stringify(vs)}`);
+    const [newRoot,] = witness.computeRootAndKey(messageNo)
     const onChainRoot = await appChain.query.runtime.SecureSpyNetwork.root.get();
     //create proof
     const programInput = new MessageVerificationInput({
-      root: onChainRoot || messagesMap.getRoot() ,
+      root: onChainRoot || messagesMap.getRoot(),
       agentId: agentAsField,
       securityCode1: Character.fromString('a'),
       securityCode2: Character.fromString('0'),
     })
-    const proof = await canMessageProgram.canMessage(programInput, witness, CircuitString.fromString("hello"), Field(0), messageNo)
+    const proof = await mockProof(programInput,newRoot)
     //do TX
     const tx1 = await appChain.transaction(admin, () => {
-      secureSpyNetwork.sendMessage(agentId, proof)
+      secureSpyNetwork.sendMessage(proof)
     });
 
     await tx1.sign();
@@ -108,6 +119,9 @@ describe("Secure Spy-Message Network", () => {
 
     const block = await appChain.produceBlock();
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    const newOnChainRoot = await appChain.query.runtime.SecureSpyNetwork.root.get();
+    expect(newOnChainRoot?.toString()).toBe(newRoot.toString());
 
   }, 1_000_000);
 
